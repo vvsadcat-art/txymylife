@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>txymylife</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f0f5fb;
+    --surface: #ffffff;
+    --surface2: #e8f0f9;
+    --accent: #f4a7b9;
+    --accent2: #e07a95;
+    --accent3: #6aaee8;
+    --text: #2c3e54;
+    --text-dim: #8aa0b8;
+    --border: rgba(100,150,200,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Space Mono',monospace; min-height:100vh; overflow-x:hidden; }
+
+  body::before {
+    content:''; position:fixed; inset:0;
+    background: radial-gradient(ellipse at 20% 20%, rgba(180,210,245,0.3) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 80%, rgba(244,167,185,0.15) 0%, transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+
+  /* LOGIN SCREEN */
+  .login-screen {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); z-index:200;
+  }
+  .login-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:48px 40px; text-align:center; max-width:360px; width:90%;
+    box-shadow: 0 8px 40px rgba(100,150,200,0.1);
+  }
+  .login-title { font-family:'Bebas Neue',sans-serif; font-size:48px; letter-spacing:4px; color:var(--text); line-height:1; }
+  .login-title span { color:var(--accent); }
+  .login-sub { font-size:11px; color:var(--text-dim); letter-spacing:2px; margin:8px 0 32px; }
+  .google-btn {
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+    padding:14px 24px; cursor:pointer; width:100%; font-family:'Space Mono',monospace;
+    font-size:12px; color:var(--text); letter-spacing:1px; transition:all 0.2s;
+  }
+  .google-btn:hover { border-color:rgba(244,167,185,0.5); background:#f5f8ff; transform:translateY(-1px); }
+  .google-icon { width:18px; height:18px; }
+
+  /* SIDEBAR */
+  .sidebar {
+    position:fixed; left:0; top:0; width:220px; height:100vh;
+    background:#deeaf7; border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:32px 0; z-index:100;
+  }
+  .logo { padding:0 24px 28px; border-bottom:1px solid var(--border); }
+  .logo-title { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:3px; color:var(--accent2); line-height:1; }
+  .logo-sub { font-size:10px; color:var(--text-dim); margin-top:4px; letter-spacing:2px; }
+  .nav-links { padding:20px 0; flex:1; list-style:none; }
+  .nav-links li a {
+    display:flex; align-items:center; gap:10px; padding:11px 24px;
+    color:var(--text-dim); text-decoration:none; font-size:11px;
+    letter-spacing:1.5px; text-transform:uppercase; transition:all 0.2s;
+    cursor:pointer; border-left:2px solid transparent;
+  }
+  .nav-links li a:hover, .nav-links li a.active {
+    color:var(--text); border-left-color:var(--accent); background:rgba(244,167,185,0.08);
+  }
+  .nav-links li a .icon { font-size:13px; }
+  .sidebar-user {
+    padding:16px 24px; border-top:1px solid var(--border);
+    font-size:10px; color:var(--text-dim); letter-spacing:1px;
+  }
+  .sidebar-user .user-name { font-size:12px; color:var(--text); margin-bottom:6px; font-weight:700; }
+  .rpg-mini { margin-bottom:8px; }
+  .rpg-mini-label { font-family:'Bebas Neue',sans-serif; font-size:16px; color:var(--accent2); letter-spacing:2px; }
+  .xp-bar-bg { background:rgba(100,150,200,0.15); border-radius:2px; height:3px; overflow:hidden; margin-top:4px; }
+  .xp-bar-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:2px; transition:width 0.5s ease; }
+  .logout-btn {
+    background:none; border:none; color:var(--text-dim); font-family:'Space Mono',monospace;
+    font-size:10px; letter-spacing:1px; cursor:pointer; padding:4px 0; text-align:left;
+    transition:color 0.2s;
+  }
+  .logout-btn:hover { color:var(--accent2); }
+
+  /* MAIN */
+  .main { margin-left:220px; padding:40px 48px; min-height:100vh; position:relative; z-index:1; }
+  .page { display:none; animation:fadeIn 0.3s ease; }
+  .page.active { display:block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* LOADING */
+  .loading { text-align:center; padding:60px; color:var(--text-dim); font-size:12px; letter-spacing:2px; }
+  .loading::after { content:''; display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; margin-left:8px; vertical-align:middle; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* PAGE HEADER */
+  .page-header { display:flex; align-items:baseline; gap:16px; margin-bottom:40px; }
+  .page-title { font-family:'Bebas Neue',sans-serif; font-size:56px; letter-spacing:4px; line-height:1; }
+  .page-title span { color:var(--accent); }
+  .page-subtitle { font-size:11px; color:var(--text-dim); letter-spacing:2px; }
+
+  /* GRID */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+
+  /* CARD */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:24px; }
+  .card-title {
+    font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim);
+    margin-bottom:16px; display:flex; align-items:center; gap:8px;
+  }
+  .card-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* INPUTS */
+  input, textarea, select {
+    background:var(--surface2); border:1px solid var(--border); border-radius:4px;
+    color:var(--text); font-family:'Space Mono',monospace; font-size:12px;
+    padding:10px 14px; width:100%; outline:none; transition:border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color:rgba(244,167,185,0.5); }
+  textarea { resize:vertical; min-height:80px; }
+  .form-group { margin-bottom:14px; }
+  .form-label { display:block; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
+
+  /* BUTTONS */
+  .btn { background:var(--accent); color:#fff; border:none; border-radius:3px; font-family:'Space Mono',monospace; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:10px 20px; cursor:pointer; transition:all 0.2s; }
+  .btn:hover { background:var(--accent2); transform:translateY(-1px); }
+  .btn-ghost { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
+  .btn-ghost:hover { color:var(--text); background:var(--surface2); transform:none; }
+  .btn-danger { background:transparent; color:#e57373; border:1px solid transparent; padding:4px 8px; font-size:10px; }
+  .btn-danger:hover { border-color:#e57373; background:transparent; transform:none; }
+
+  /* HOME */
+  .hero { margin-bottom:48px; }
+  .hero-big { font-family:'Bebas Neue',sans-serif; font-size:88px; letter-spacing:6px; line-height:0.95; margin-bottom:8px; }
+  .hero-big .highlight { color:var(--accent); }
+  .hero-desc { font-family:'Noto Serif SC',serif; font-size:14px; color:var(--text-dim); line-height:2; max-width:480px; }
+  .stats-row { display:flex; gap:20px; flex-wrap:wrap; margin-top:40px; }
+  .stat-box { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:20px 24px; min-width:110px; }
+  .stat-num { font-family:'Bebas Neue',sans-serif; font-size:40px; color:var(--accent2); line-height:1; }
+  .stat-label { font-size:10px; color:var(--text-dim); letter-spacing:1.5px; text-transform:uppercase; margin-top:4px; }
+
+  /* RPG */
+  .rpg-profile {
+    background:linear-gradient(135deg,#deeaf7 0%,#f5f9ff 100%);
+    border:1px solid var(--border); border-radius:6px; padding:32px; margin-bottom:24px; position:relative; overflow:hidden;
+  }
+  .rpg-profile::before { content:''; position:absolute; top:-40px; right:-40px; width:200px; height:200px; background:radial-gradient(circle,rgba(244,167,185,0.12) 0%,transparent 70%); pointer-events:none; }
+  .rpg-char-name { font-family:'Bebas Neue',sans-serif; font-size:52px; letter-spacing:4px; color:var(--text); line-height:1; }
+  .rpg-char-level { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--accent2); letter-spacing:3px; }
+  .rpg-char-class { font-size:12px; color:var(--text-dim); margin-top:4px; }
+  .rpg-xp-section { margin-top:20px; display:flex; align-items:center; gap:16px; }
+  .rpg-xp-label { font-size:11px; color:var(--text-dim); white-space:nowrap; }
+  .rpg-xp-bar { flex:1; background:rgba(100,150,200,0.15); border-radius:2px; height:6px; overflow:hidden; }
+  .rpg-xp-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:2px; transition:width 0.8s cubic-bezier(0.16,1,0.3,1); }
+  .skill-tree { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .skill-item { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:16px; }
+  .skill-name { font-size:11px; color:var(--text); letter-spacing:1px; margin-bottom:8px; display:flex; justify-content:space-between; }
+  .skill-level { color:var(--accent2); cursor:pointer; }
+  .skill-bar { display:flex; gap:4px; }
+  .skill-pip { flex:1; height:4px; background:var(--border); border-radius:1px; }
+  .skill-pip.filled { background:var(--accent); }
+  .quest-list { list-style:none; }
+  .quest-item { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); font-size:12px; }
+  .quest-status { width:18px; height:18px; border:1px solid var(--border); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0; cursor:pointer; transition:all 0.2s; margin-top:1px; }
+  .quest-status.done { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .quest-info { flex:1; }
+  .quest-name { color:var(--text); margin-bottom:2px; }
+  .quest-name.done-text { text-decoration:line-through; color:var(--text-dim); }
+  .quest-xp { font-size:10px; color:var(--accent2); letter-spacing:1px; }
+
+  /* MOMENT CARDS */
+  .moment-card { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:16px 20px; margin-bottom:12px; position:relative; transition:all 0.2s; }
+  .moment-card:hover { border-color:rgba(244,167,185,0.4); transform:translateX(4px); }
+  .moment-date { font-size:10px; color:var(--text-dim); letter-spacing:1px; margin-bottom:6px; }
+  .moment-text { font-family:'Noto Serif SC',serif; font-size:14px; line-height:1.7; color:var(--text); }
+  .moment-tag { display:inline-block; background:rgba(244,167,185,0.15); color:var(--accent2); font-size:9px; letter-spacing:1.5px; padding:2px 8px; border-radius:2px; margin-top:8px; text-transform:uppercase; }
+
+  /* CONCERTS */
+  .concert-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+  .concert-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; transition:all 0.25s; cursor:pointer; }
+  .concert-card:hover { border-color:rgba(244,167,185,0.4); transform:translateY(-3px); box-shadow:0 12px 32px rgba(100,150,200,0.12); }
+  .concert-header { background:linear-gradient(135deg,var(--surface2) 0%,var(--surface) 100%); padding:20px; border-bottom:1px solid var(--border); }
+  .concert-artist { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px; color:var(--text); }
+  .concert-tour { font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .concert-body { padding:16px 20px; }
+  .concert-meta { display:flex; gap:16px; margin-bottom:12px; font-size:11px; color:var(--text-dim); }
+  .concert-fave { font-family:'Noto Serif SC',serif; font-size:12px; color:var(--text); line-height:1.6; margin-bottom:12px; }
+  .concert-score { font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--accent2); letter-spacing:2px; }
+
+  /* WORLD */
+  .country-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
+  .country-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:16px; cursor:pointer; transition:all 0.2s; }
+  .country-card.visited { border-color:rgba(106,174,232,0.3); }
+  .country-card.wishlist { border-color:rgba(244,167,185,0.3); }
+  .country-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(100,150,200,0.1); }
+  .country-flag { font-size:28px; margin-bottom:8px; }
+  .country-name { font-size:13px; color:var(--text); margin-bottom:4px; }
+  .country-status { font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+  .country-status.visited { color:var(--accent3); }
+  .country-status.wishlist { color:var(--accent); }
+  .country-stars { color:var(--accent2); font-size:11px; margin-top:4px; }
+
+  /* EXP */
+  .exp-card { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:20px; margin-bottom:12px; cursor:pointer; transition:all 0.2s; }
+  .exp-card:hover { border-color:rgba(244,167,185,0.4); transform:translateX(4px); }
+  .exp-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+  .exp-name { font-size:14px; color:var(--text); font-weight:700; }
+  .exp-type { font-size:9px; letter-spacing:1.5px; padding:2px 8px; border-radius:2px; text-transform:uppercase; }
+  .exp-type.concert { background:rgba(244,167,185,0.15); color:var(--accent2); }
+  .exp-type.exhibition { background:rgba(106,174,232,0.15); color:var(--accent3); }
+  .exp-type.festival { background:rgba(224,122,149,0.15); color:var(--accent2); }
+  .exp-type.popup { background:rgba(180,100,255,0.1); color:#c47fff; }
+  .exp-insight { font-family:'Noto Serif SC',serif; font-size:12px; color:var(--text-dim); line-height:1.8; margin-top:6px; }
+
+  /* TODO */
+  .todo-item { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); font-size:12px; }
+  .todo-cb { width:16px; height:16px; border:1px solid var(--border); border-radius:2px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; transition:all 0.15s; }
+  .todo-cb.checked { background:var(--accent); border-color:var(--accent); color:#fff; font-size:10px; }
+  .todo-text { flex:1; line-height:1.5; }
+  .todo-text.done { text-decoration:line-through; color:var(--text-dim); }
+
+  /* DIARY */
+  .diary-entry { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:20px; margin-bottom:12px; }
+  .diary-date { font-size:10px; color:var(--accent2); letter-spacing:2px; margin-bottom:8px; }
+  .diary-content { font-family:'Noto Serif SC',serif; font-size:13px; line-height:2; color:var(--text); }
+
+  /* MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(200,220,240,0.6); backdrop-filter:blur(4px); z-index:500; display:none; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:32px; width:90%; max-width:520px; max-height:85vh; overflow-y:auto; animation:modalIn 0.25s ease; box-shadow:0 16px 48px rgba(100,150,200,0.15); }
+  @keyframes modalIn { from{opacity:0;transform:scale(0.96) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+  .modal-title { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:3px; color:var(--text); }
+  .modal-close { background:none; border:none; color:var(--text-dim); font-size:18px; cursor:pointer; padding:4px 8px; border-radius:3px; transition:all 0.15s; }
+  .modal-close:hover { background:var(--surface2); color:var(--text); }
+
+  /* FILTER */
+  .filter-row { display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap; }
+  .filter-btn { background:var(--surface); border:1px solid var(--border); border-radius:3px; color:var(--text-dim); font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; padding:6px 14px; cursor:pointer; transition:all 0.15s; }
+  .filter-btn.active, .filter-btn:hover { background:rgba(244,167,185,0.1); border-color:rgba(244,167,185,0.4); color:var(--accent2); }
+
+  /* EMPTY */
+  .empty { text-align:center; padding:48px; color:var(--text-dim); font-size:12px; letter-spacing:1px; }
+  .empty-icon { font-size:32px; margin-bottom:12px; }
+
+  /* TOAST */
+  .toast { position:fixed; bottom:32px; right:32px; background:var(--accent); color:#fff; font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:2px; padding:12px 24px; border-radius:6px; z-index:9999; animation:fadeIn 0.3s ease; box-shadow:0 8px 24px rgba(244,167,185,0.3); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  @media (max-width:768px) {
+    .sidebar { width:60px; }
+    .sidebar .logo-title, .sidebar .logo-sub, .nav-links li a span:last-child, .sidebar-user .user-name, .sidebar-user .rpg-mini, .sidebar-user .logout-btn { display:none; }
+    .nav-links li a { padding:14px; justify-content:center; }
+    .main { margin-left:60px; padding:24px 16px; }
+    .hero-big { font-size:52px; }
+    .grid-2 { grid-template-columns:1fr; }
+    .skill-tree { grid-template-columns:1fr; }
+    .page-title { font-size:40px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-title">TXY<br><span>MY LIFE</span></div>
+    <div class="login-sub">私人宇宙 · 云端同步</div>
+    <button class="google-btn" onclick="signInWithGoogle()">
+      <svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      使用 Google 登录
+    </button>
+    <div id="login-error" style="color:#e57373;font-size:11px;margin-top:12px;display:none"></div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar" style="display:none">
+  <div class="logo">
+    <div class="logo-title">TXY</div>
+    <div class="logo-sub">MY LIFE</div>
+  </div>
+  <ul class="nav-links">
+    <li><a onclick="showPage('home')" class="active"><span class="icon">◈</span><span>首页</span></a></li>
+    <li><a onclick="showPage('rpg')"><span class="icon">⚔</span><span>人生RPG</span></a></li>
+    <li><a onclick="showPage('moments')"><span class="icon">✦</span><span>改变我的瞬间</span></a></li>
+    <li><a onclick="showPage('concerts')"><span class="icon">♪</span><span>演唱会</span></a></li>
+    <li><a onclick="showPage('world')"><span class="icon">◉</span><span>世界地图</span></a></li>
+    <li><a onclick="showPage('experience')"><span class="icon">◎</span><span>体验观察库</span></a></li>
+    <li><a onclick="showPage('todo')"><span class="icon">□</span><span>To Do</span></a></li>
+    <li><a onclick="showPage('diary')"><span class="icon">◐</span><span>日记</span></a></li>
+  </ul>
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebar-username">—</div>
+    <div class="rpg-mini">
+      <div class="rpg-mini-label" id="sidebar-level">Lv.1</div>
+      <div class="xp-bar-bg"><div class="xp-bar-fill" id="sidebar-xp" style="width:0%"></div></div>
+    </div>
+    <button class="logout-btn" onclick="signOut()">退出登录</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main" id="main-content" style="display:none">
+
+  <!-- HOME -->
+  <div id="page-home" class="page active">
+    <div class="hero">
+      <div class="hero-big">TXY<br><span class="highlight">MY LIFE</span></div>
+      <p class="hero-desc">这是我的私人宇宙。<br>记录演唱会、旅行、成长、那些改变我的瞬间。</p>
+    </div>
+    <div class="stats-row" id="home-stats"></div>
+  </div>
+
+  <!-- RPG -->
+  <div id="page-rpg" class="page">
+    <div class="page-header"><div class="page-title">人生 <span>RPG</span></div></div>
+    <div class="rpg-profile">
+      <div class="rpg-char-name" id="rpg-char-name">TXY</div>
+      <div class="rpg-char-level" id="rpg-level-display">LV.1</div>
+      <div class="rpg-char-class">探索者 · 大学生</div>
+      <div class="rpg-xp-section">
+        <div class="rpg-xp-label" id="rpg-xp-text">0 / 500 EXP</div>
+        <div class="rpg-xp-bar"><div class="rpg-xp-fill" id="rpg-xp-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">⚡ 技能树</div>
+        <div class="skill-tree" id="skill-tree"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">◈ 任务列表</div>
+        <ul class="quest-list" id="quest-list"></ul>
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <input type="text" id="quest-input" placeholder="新任务名称" style="flex:1">
+          <input type="number" id="quest-xp" placeholder="EXP" style="width:70px">
+          <button class="btn" onclick="addQuest()">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOMENTS -->
+  <div id="page-moments" class="page">
+    <div class="page-header"><div class="page-title">改变我的 <span>瞬间</span></div></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">+ 记录新瞬间</div>
+        <div class="form-group"><label class="form-label">这个瞬间</label><input type="text" id="moment-text" placeholder="例如：首尔下雪"></div>
+        <div class="form-group"><label class="form-label">日期</label><input type="text" id="moment-date" placeholder="例如：2024.12"></div>
+        <div class="form-group"><label class="form-label">标签</label>
+          <select id="moment-tag"><option value="旅行">旅行</option><option value="演唱会">演唱会</option><option value="成长">成长</option><option value="友情">友情</option><option value="第一次">第一次</option><option value="其他">其他</option></select>
+        </div>
+        <button class="btn" onclick="addMoment()">记录</button>
+      </div>
+      <div id="moments-list"></div>
+    </div>
+  </div>
+
+  <!-- CONCERTS -->
+  <div id="page-concerts" class="page">
+    <div class="page-header"><div class="page-title">演唱会 <span>DATABASE</span></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div class="page-subtitle" id="concert-count">0 场演唱会</div>
+      <button class="btn" onclick="openModal('concert-modal')">+ 添加</button>
+    </div>
+    <div class="concert-grid" id="concert-grid"></div>
+  </div>
+
+  <!-- WORLD -->
+  <div id="page-world" class="page">
+    <div class="page-header"><div class="page-title">世界 <span>地图</span></div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:24px">
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="filterCountries('all',this)">全部</button>
+        <button class="filter-btn" onclick="filterCountries('visited',this)">✅ 去过</button>
+        <button class="filter-btn" onclick="filterCountries('wishlist',this)">⭕ 想去</button>
+      </div>
+      <button class="btn" onclick="openModal('country-modal')">+ 添加</button>
+    </div>
+    <div class="country-grid" id="country-grid"></div>
+  </div>
+
+  <!-- EXPERIENCE -->
+  <div id="page-experience" class="page">
+    <div class="page-header"><div class="page-title">体验 <span>观察库</span></div></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">+ 记录新体验</div>
+        <div class="form-group"><label class="form-label">活动名称</label><input type="text" id="exp-name" placeholder="例如：CXM Double Up Live"></div>
+        <div class="form-group"><label class="form-label">类型</label>
+          <select id="exp-type"><option value="concert">演唱会</option><option value="festival">音乐节</option><option value="exhibition">展览</option><option value="popup">快闪店</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">为什么喜欢？</label><textarea id="exp-why" placeholder="什么吸引了你？"></textarea></div>
+        <div class="form-group"><label class="form-label">学到了什么？</label><textarea id="exp-learn" placeholder="有什么洞察？"></textarea></div>
+        <div class="form-group"><label class="form-label">如果我是策划……</label><textarea id="exp-plan" placeholder="你会怎么做？"></textarea></div>
+        <button class="btn" onclick="addExperience()">记录</button>
+      </div>
+      <div id="exp-list"></div>
+    </div>
+  </div>
+
+  <!-- TODO -->
+  <div id="page-todo" class="page">
+    <div class="page-header"><div class="page-title">To <span>Do</span></div></div>
+    <div class="grid-2">
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">+ 新任务</div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="todo-input" placeholder="今天要做什么？" style="flex:1" onkeydown="if(event.key==='Enter')addTodo()">
+            <button class="btn" onclick="addTodo()">+</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">目标</div>
+          <div style="display:flex;gap:8px;margin-bottom:16px">
+            <input type="text" id="goal-input" placeholder="设定一个目标" style="flex:1" onkeydown="if(event.key==='Enter')addGoal()">
+            <button class="btn" onclick="addGoal()">+</button>
+          </div>
+          <div id="goal-list"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">待办清单</div>
+        <div id="todo-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIARY -->
+  <div id="page-diary" class="page">
+    <div class="page-header"><div class="page-title">私人 <span>日记</span></div></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">+ 新日记</div>
+        <div class="form-group"><label class="form-label">日期</label><input type="date" id="diary-date"></div>
+        <div class="form-group"><label class="form-label">今天……</label><textarea id="diary-content" placeholder="写下今天的感受..." style="min-height:160px"></textarea></div>
+        <button class="btn" onclick="addDiary()">保存</button>
+      </div>
+      <div id="diary-list"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="concert-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">添加演唱会</div><button class="modal-close" onclick="closeModal('concert-modal')">✕</button></div>
+    <div class="form-group"><label class="form-label">艺人名称</label><input type="text" id="c-artist" placeholder="例如：CXM"></div>
+    <div class="form-group"><label class="form-label">演唱会名称</label><input type="text" id="c-tour" placeholder="例如：Double Up Live"></div>
+    <div class="form-group"><label class="form-label">地点</label><input type="text" id="c-location" placeholder="例如：首尔"></div>
+    <div class="form-group"><label class="form-label">时间</label><input type="text" id="c-year" placeholder="例如：2025.01"></div>
+    <div class="form-group"><label class="form-label">最难忘的瞬间</label><textarea id="c-fave" placeholder="例如：首尔下雪"></textarea></div>
+    <div class="form-group"><label class="form-label">评分 (1-10)</label><input type="number" id="c-score" min="1" max="10" placeholder="10"></div>
+    <button class="btn" onclick="addConcert()" style="width:100%">保存</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="country-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">添加国家/地区</div><button class="modal-close" onclick="closeModal('country-modal')">✕</button></div>
+    <div class="form-group"><label class="form-label">国家/地区</label><input type="text" id="co-name" placeholder="例如：韩国"></div>
+    <div class="form-group"><label class="form-label">Flag Emoji</label><input type="text" id="co-flag" placeholder="例如：🇰🇷"></div>
+    <div class="form-group"><label class="form-label">状态</label><select id="co-status"><option value="visited">✅ 去过</option><option value="wishlist">⭕ 想去</option></select></div>
+    <div class="form-group"><label class="form-label">第一次去</label><input type="text" id="co-year" placeholder="例如：2024"></div>
+    <div class="form-group"><label class="form-label">难忘回忆</label><textarea id="co-memory" placeholder="例如：看SVT演唱会"></textarea></div>
+    <div class="form-group"><label class="form-label">评分 (1-5)</label><input type="number" id="co-rating" min="1" max="5" placeholder="5"></div>
+    <button class="btn" onclick="addCountry()" style="width:100%">保存</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="detail-title"></div><button class="modal-close" onclick="closeModal('detail-modal')">✕</button></div>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+// ============ SUPABASE INIT ============
+const SUPABASE_URL = 'https://prtdcdaboaqlqaachrqp.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydGRjZGFib2FxbHFhYWNocnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUxODUsImV4cCI6MjA5NjI2MTE4NX0.ce2ZCw2Zu7og9akFXdx9cdb5o73kNtxVprOSlltdT3E';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userStats = { total_xp: 0, skills: {} };
+let countryFilter = 'all';
+
+// ============ AUTH ============
+async function signInWithGoogle() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+  if (error) {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('login-error').textContent = '登录失败，请重试';
+  }
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadUserStats();
+    showApp();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      await loadUserStats();
+      showApp();
+    }
+  });
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('main-content').style.display = 'block';
+  const name = currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'TXY';
+  document.getElementById('sidebar-username').textContent = name;
+  document.getElementById('rpg-char-name').textContent = name.split(' ')[0].toUpperCase();
+  updateRPGDisplay();
+  renderHome();
+  document.getElementById('diary-date').value = new Date().toISOString().split('T')[0];
+}
+
+// ============ DB HELPERS ============
+const uid = () => currentUser.id;
+
+async function dbGet(table) {
+  const { data } = await sb.from(table).select('*').eq('user_id', uid()).order('created_at', { ascending: false });
+  return data || [];
+}
+
+async function dbInsert(table, obj) {
+  const { data, error } = await sb.from(table).insert({ ...obj, user_id: uid() }).select().single();
+  return data;
+}
+
+async function dbUpdate(table, id, obj) {
+  await sb.from(table).update(obj).eq('id', id).eq('user_id', uid());
+}
+
+async function dbDelete(table, id) {
+  await sb.from(table).delete().eq('id', id).eq('user_id', uid());
+}
+
+// ============ USER STATS ============
+async function loadUserStats() {
+  const { data } = await sb.from('user_stats').select('*').eq('user_id', uid()).single();
+  if (data) { userStats = data; }
+  else {
+    const { data: newStats } = await sb.from('user_stats').insert({ user_id: uid(), total_xp: 0, skills: {} }).select().single();
+    if (newStats) userStats = newStats;
+  }
+}
+
+async function addXP(amount) {
+  userStats.total_xp = (userStats.total_xp || 0) + amount;
+  await sb.from('user_stats').update({ total_xp: userStats.total_xp }).eq('user_id', uid());
+  updateRPGDisplay();
+  showToast(`+${amount} EXP`);
+}
+
+function getLevel(xp) {
+  const t = [0,100,300,600,1000,1500,2200,3000,4000,5200,6600];
+  let lv = 1;
+  for (let i = 1; i < t.length; i++) { if (xp >= t[i]) lv = i+1; }
+  return { level: lv, current: xp - t[lv-1], needed: (t[lv] || t[lv-1]+1000) - t[lv-1] };
+}
+
+function updateRPGDisplay() {
+  const xp = userStats.total_xp || 0;
+  const { level, current, needed } = getLevel(xp);
+  const pct = Math.min(100, (current/needed)*100);
+  document.getElementById('sidebar-level').textContent = `Lv.${level}`;
+  document.getElementById('sidebar-xp').style.width = pct+'%';
+  const fill = document.getElementById('rpg-xp-fill');
+  const txt = document.getElementById('rpg-xp-text');
+  const ldisp = document.getElementById('rpg-level-display');
+  if (fill) fill.style.width = pct+'%';
+  if (txt) txt.textContent = `${current} / ${needed} EXP`;
+  if (ldisp) ldisp.textContent = `LV.${level}`;
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2000);
+}
+
+// ============ NAVIGATION ============
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  render(id);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
+
+// ============ RPG ============
+const RPG_SKILLS = [
+  { name:'韩语', key:'korean', max:5 },
+  { name:'英语', key:'english', max:5 },
+  { name:'活动策划', key:'planning', max:5 },
+  { name:'独立旅行', key:'travel', max:5 },
+  { name:'社交能力', key:'social', max:5 },
+  { name:'创意思维', key:'creative', max:5 },
+];
+
+async function renderRPG() {
+  updateRPGDisplay();
+  const skills = userStats.skills || {};
+  const st = document.getElementById('skill-tree');
+  if (st) st.innerHTML = RPG_SKILLS.map(s => {
+    const lv = skills[s.key] || 0;
+    const pips = Array.from({length:s.max},(_,i) => `<div class="skill-pip ${i<lv?'filled':''}"></div>`).join('');
+    return `<div class="skill-item"><div class="skill-name"><span>${s.name}</span><span class="skill-level" onclick="levelSkill('${s.key}',${s.max})" title="点击升级">Lv.${lv}</span></div><div class="skill-bar">${pips}</div></div>`;
+  }).join('');
+
+  const quests = await dbGet('quests');
+  const ql = document.getElementById('quest-list');
+  if (ql) ql.innerHTML = quests.length ? quests.map(q =>
+    `<li class="quest-item">
+      <div class="quest-status ${q.done?'done':''}" onclick="toggleQuest('${q.id}',${q.done})">${q.done?'✓':''}</div>
+      <div class="quest-info"><div class="quest-name ${q.done?'done-text':''}">${q.name}</div><div class="quest-xp">+${q.xp} EXP</div></div>
+      <button class="btn-danger btn" onclick="deleteQuest('${q.id}')">✕</button>
+    </li>`).join('')
+    : '<li style="color:var(--text-dim);font-size:12px;padding:12px 0">暂无任务，添加你的第一个！</li>';
+}
+
+async function levelSkill(key, max) {
+  const skills = userStats.skills || {};
+  const cur = skills[key] || 0;
+  if (cur < max) {
+    skills[key] = cur + 1;
+    userStats.skills = skills;
+    await sb.from('user_stats').update({ skills }).eq('user_id', uid());
+    await addXP(30);
+    renderRPG();
+  }
+}
+
+async function addQuest() {
+  const name = document.getElementById('quest-input').value.trim();
+  const xp = parseInt(document.getElementById('quest-xp').value) || 50;
+  if (!name) return;
+  await dbInsert('quests', { name, xp, done: false });
+  document.getElementById('quest-input').value = '';
+  document.getElementById('quest-xp').value = '';
+  renderRPG();
+}
+
+async function toggleQuest(id, done) {
+  if (!done) await addXP(50);
+  await dbUpdate('quests', id, { done: !done });
+  renderRPG();
+}
+
+async function deleteQuest(id) {
+  await dbDelete('quests', id); renderRPG();
+}
+
+// ============ MOMENTS ============
+async function addMoment() {
+  const text = document.getElementById('moment-text').value.trim();
+  if (!text) return;
+  await dbInsert('moments', { text, date: document.getElementById('moment-date').value.trim() || new Date().toLocaleDateString('zh-CN'), tag: document.getElementById('moment-tag').value });
+  document.getElementById('moment-text').value = '';
+  document.getElementById('moment-date').value = '';
+  await addXP(20);
+  renderMoments();
+}
+
+async function renderMoments() {
+  const moments = await dbGet('moments');
+  const el = document.getElementById('moments-list');
+  if (!el) return;
+  el.innerHTML = moments.length ? moments.map(m =>
+    `<div class="moment-card">
+      <div class="moment-date">${m.date}</div>
+      <div class="moment-text">✦ ${m.text}</div>
+      <span class="moment-tag">${m.tag}</span>
+      <button class="btn-danger btn" onclick="deleteMoment('${m.id}')" style="position:absolute;top:8px;right:8px">✕</button>
+    </div>`).join('')
+    : `<div class="empty"><div class="empty-icon">✦</div>还没有记录任何瞬间</div>`;
+}
+
+async function deleteMoment(id) { await dbDelete('moments', id); renderMoments(); }
+
+// ============ CONCERTS ============
+async function addConcert() {
+  const artist = document.getElementById('c-artist').value.trim();
+  if (!artist) return;
+  await dbInsert('concerts', { artist, tour: document.getElementById('c-tour').value.trim(), location: document.getElementById('c-location').value.trim(), year: document.getElementById('c-year').value.trim(), fave: document.getElementById('c-fave').value.trim(), score: document.getElementById('c-score').value || '10' });
+  closeModal('concert-modal');
+  ['c-artist','c-tour','c-location','c-year','c-fave','c-score'].forEach(id => document.getElementById(id).value = '');
+  await addXP(50);
+  renderConcerts();
+}
+
+async function renderConcerts() {
+  const concerts = await dbGet('concerts');
+  const grid = document.getElementById('concert-grid');
+  const count = document.getElementById('concert-count');
+  if (!grid) return;
+  if (count) count.textContent = `${concerts.length} 场演唱会`;
+  grid.innerHTML = concerts.length ? concerts.map(c =>
+    `<div class="concert-card" onclick="showConcertDetail('${c.id}')">
+      <div class="concert-header"><div class="concert-artist">${c.artist}</div><div class="concert-tour">${c.tour||''}</div></div>
+      <div class="concert-body">
+        <div class="concert-meta"><span>📍 ${c.location||'—'}</span><span>📅 ${c.year||'—'}</span></div>
+        ${c.fave?`<div class="concert-fave">「${c.fave}」</div>`:''}
+        <div style="display:flex;align-items:baseline;gap:4px"><div class="concert-score">${c.score}</div><div style="font-size:12px;color:var(--text-dim)">/10</div></div>
+      </div>
+    </div>`).join('')
+    : `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">♪</div>还没有演唱会记录</div>`;
+}
+
+async function showConcertDetail(id) {
+  const concerts = await dbGet('concerts');
+  const c = concerts.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('detail-title').textContent = `${c.artist} · ${c.tour||''}`;
+  document.getElementById('detail-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div><div class="form-label">地点</div><div style="font-size:14px;margin-top:4px">${c.location||'—'}</div></div>
+      <div><div class="form-label">时间</div><div style="font-size:14px;margin-top:4px">${c.year||'—'}</div></div>
+    </div>
+    ${c.fave?`<div style="margin-bottom:16px"><div class="form-label">最难忘的瞬间</div><div style="font-family:'Noto Serif SC',serif;font-size:14px;line-height:1.8;margin-top:8px">${c.fave}</div></div>`:''}
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--accent2)">${c.score}<span style="font-size:16px;color:var(--text-dim)">/10</span></div>
+    <button class="btn btn-ghost" onclick="deleteConcert('${c.id}')" style="margin-top:16px;color:#e57373;border-color:#e57373">删除记录</button>`;
+  openModal('detail-modal');
+}
+
+async function deleteConcert(id) { await dbDelete('concerts', id); closeModal('detail-modal'); renderConcerts(); }
+
+// ============ WORLD ============
+function filterCountries(f, btn) {
+  countryFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderWorld();
+}
+
+async function addCountry() {
+  const name = document.getElementById('co-name').value.trim();
+  if (!name) return;
+  await dbInsert('countries', { name, flag: document.getElementById('co-flag').value.trim()||'🌍', status: document.getElementById('co-status').value, year: document.getElementById('co-year').value.trim(), memory: document.getElementById('co-memory').value.trim(), rating: document.getElementById('co-rating').value||'5' });
+  closeModal('country-modal');
+  ['co-name','co-flag','co-year','co-memory','co-rating'].forEach(id => document.getElementById(id).value = '');
+  await addXP(30);
+  renderWorld();
+}
+
+async function renderWorld() {
+  const all = await dbGet('countries');
+  const countries = countryFilter === 'all' ? all : all.filter(c => c.status === countryFilter);
+  const grid = document.getElementById('country-grid');
+  if (!grid) return;
+  grid.innerHTML = countries.length ? countries.map(c => {
+    const stars = c.status==='visited' ? '★'.repeat(parseInt(c.rating)||0)+'☆'.repeat(5-(parseInt(c.rating)||0)) : '';
+    return `<div class="country-card ${c.status}" onclick="showCountryDetail('${c.id}')">
+      <div class="country-flag">${c.flag}</div>
+      <div class="country-name">${c.name}</div>
+      <div class="country-status ${c.status}">${c.status==='visited'?'✅ 去过':'⭕ 想去'}</div>
+      ${stars?`<div class="country-stars">${stars}</div>`:''}
+    </div>`;
+  }).join('') : `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">◉</div>还没有记录</div>`;
+}
+
+async function showCountryDetail(id) {
+  const all = await dbGet('countries');
+  const c = all.find(x => x.id === id);
+  if (!c) return;
+  const stars = c.status==='visited' ? '★'.repeat(parseInt(c.rating)||0)+'☆'.repeat(5-(parseInt(c.rating)||0)) : '';
+  document.getElementById('detail-title').textContent = `${c.flag} ${c.name}`;
+  document.getElementById('detail-body').innerHTML = `
+    <div style="margin-bottom:12px"><span class="country-status ${c.status}" style="font-size:12px">${c.status==='visited'?'✅ 去过':'⭕ 想去'}</span></div>
+    ${c.status==='visited'?`<div style="margin-bottom:12px"><div class="form-label">第一次去</div><div style="font-size:14px;margin-top:4px">${c.year||'—'}</div></div>${c.memory?`<div style="margin-bottom:12px"><div class="form-label">难忘回忆</div><div style="font-family:'Noto Serif SC',serif;font-size:14px;line-height:1.8;margin-top:8px">${c.memory}</div></div>`:''}
+    <div style="color:var(--accent2);font-size:20px;letter-spacing:3px">${stars}</div>`:''}
+    <button class="btn btn-ghost" onclick="deleteCountry('${c.id}')" style="margin-top:20px;color:#e57373;border-color:#e57373">删除</button>`;
+  openModal('detail-modal');
+}
+
+async function deleteCountry(id) { await dbDelete('countries', id); closeModal('detail-modal'); renderWorld(); }
+
+// ============ EXPERIENCE ============
+const expTypeLabel = { concert:'演唱会', festival:'音乐节', exhibition:'展览', popup:'快闪店' };
+
+async function addExperience() {
+  const name = document.getElementById('exp-name').value.trim();
+  if (!name) return;
+  await dbInsert('experiences', { name, type: document.getElementById('exp-type').value, why: document.getElementById('exp-why').value.trim(), learn: document.getElementById('exp-learn').value.trim(), plan: document.getElementById('exp-plan').value.trim(), date: new Date().toLocaleDateString('zh-CN') });
+  ['exp-name','exp-why','exp-learn','exp-plan'].forEach(id => document.getElementById(id).value = '');
+  await addXP(40);
+  renderExperiences();
+}
+
+async function renderExperiences() {
+  const exps = await dbGet('experiences');
+  const el = document.getElementById('exp-list');
+  if (!el) return;
+  el.innerHTML = exps.length ? exps.map(e =>
+    `<div class="exp-card" onclick="toggleExpDetail('${e.id}')">
+      <div class="exp-header"><div class="exp-name">${e.name}</div><span class="exp-type ${e.type}">${expTypeLabel[e.type]||e.type}</span></div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">${e.date||''}</div>
+      <div id="expd-${e.id}" style="display:none">
+        ${e.why?`<div class="exp-insight" style="margin-top:8px"><span style="color:var(--accent2);font-size:10px">为什么喜欢</span><br>${e.why}</div>`:''}
+        ${e.learn?`<div class="exp-insight" style="margin-top:8px"><span style="color:var(--accent3);font-size:10px">学到了</span><br>${e.learn}</div>`:''}
+        ${e.plan?`<div class="exp-insight" style="margin-top:8px"><span style="color:var(--accent);font-size:10px">如果我是策划</span><br>${e.plan}</div>`:''}
+      </div>
+      <button class="btn-danger btn" onclick="event.stopPropagation();deleteExp('${e.id}')" style="margin-top:8px">删除</button>
+    </div>`).join('')
+    : `<div class="empty"><div class="empty-icon">◎</div>记录你的第一个体验</div>`;
+}
+
+function toggleExpDetail(id) {
+  const d = document.getElementById(`expd-${id}`);
+  if (d) d.style.display = d.style.display==='none' ? 'block' : 'none';
+}
+
+async function deleteExp(id) { await dbDelete('experiences', id); renderExperiences(); }
+
+// ============ TODO ============
+async function addTodo() {
+  const text = document.getElementById('todo-input').value.trim();
+  if (!text) return;
+  await dbInsert('todos', { text, done: false, is_goal: false });
+  document.getElementById('todo-input').value = '';
+  await addXP(10);
+  renderTodo();
+}
+
+async function addGoal() {
+  const text = document.getElementById('goal-input').value.trim();
+  if (!text) return;
+  await dbInsert('todos', { text, done: false, is_goal: true });
+  document.getElementById('goal-input').value = '';
+  await addXP(15);
+  renderTodo();
+}
+
+async function renderTodo() {
+  const all = await dbGet('todos');
+  const todos = all.filter(t => !t.is_goal);
+  const goals = all.filter(t => t.is_goal);
+  const tl = document.getElementById('todo-list');
+  const gl = document.getElementById('goal-list');
+  const row = t => `<div class="todo-item"><div class="todo-cb ${t.done?'checked':''}" onclick="toggleTodo('${t.id}',${t.done})">${t.done?'✓':''}</div><div class="todo-text ${t.done?'done':''}">${t.text}</div><button class="btn-danger btn" onclick="deleteTodo('${t.id}')">✕</button></div>`;
+  if (tl) tl.innerHTML = todos.length ? todos.map(row).join('') : '<div style="color:var(--text-dim);font-size:12px;padding:12px 0">暂无待办</div>';
+  if (gl) gl.innerHTML = goals.length ? goals.map(row).join('') : '<div style="color:var(--text-dim);font-size:12px">暂无目标</div>';
+}
+
+async function toggleTodo(id, done) {
+  if (!done) await addXP(5);
+  await dbUpdate('todos', id, { done: !done });
+  renderTodo();
+}
+
+async function deleteTodo(id) { await dbDelete('todos', id); renderTodo(); }
+
+// ============ DIARY ============
+async function addDiary() {
+  const content = document.getElementById('diary-content').value.trim();
+  if (!content) return;
+  await dbInsert('diary', { date: document.getElementById('diary-date').value || new Date().toISOString().split('T')[0], content });
+  document.getElementById('diary-content').value = '';
+  await addXP(25);
+  renderDiary();
+}
+
+async function renderDiary() {
+  const entries = await dbGet('diary');
+  const el = document.getElementById('diary-list');
+  if (!el) return;
+  el.innerHTML = entries.length ? entries.map(e =>
+    `<div class="diary-entry">
+      <div class="diary-date">${e.date}</div>
+      <div class="diary-content">${e.content.replace(/\n/g,'<br>')}</div>
+      <button class="btn-danger btn" onclick="deleteDiary('${e.id}')" style="margin-top:12px">删除</button>
+    </div>`).join('')
+    : `<div class="empty"><div class="empty-icon">◐</div>写下今天的第一篇日记</div>`;
+}
+
+async function deleteDiary(id) { await dbDelete('diary', id); renderDiary(); }
+
+// ============ HOME ============
+async function renderHome() {
+  const el = document.getElementById('home-stats');
+  if (!el) return;
+  const xp = userStats.total_xp || 0;
+  const { level } = getLevel(xp);
+  const [concerts, countries, moments, exps] = await Promise.all([
+    dbGet('concerts'), dbGet('countries'), dbGet('moments'), dbGet('experiences')
+  ]);
+  const stats = [
+    { num: level, label: 'LEVEL' },
+    { num: xp, label: 'TOTAL EXP' },
+    { num: concerts.length, label: '场演唱会' },
+    { num: countries.filter(c=>c.status==='visited').length, label: '个国家' },
+    { num: moments.length, label: '个瞬间' },
+    { num: exps.length, label: '条体验' },
+  ];
+  el.innerHTML = stats.map(s => `<div class="stat-box"><div class="stat-num">${s.num}</div><div class="stat-label">${s.label}</div></div>`).join('');
+}
+
+// ============ RENDER ROUTER ============
+function render(page) {
+  if (page==='home') renderHome();
+  else if (page==='rpg') renderRPG();
+  else if (page==='moments') renderMoments();
+  else if (page==='concerts') renderConcerts();
+  else if (page==='world') renderWorld();
+  else if (page==='experience') renderExperiences();
+  else if (page==='todo') renderTodo();
+  else if (page==='diary') renderDiary();
+}
+
+// ============ START ============
+initAuth();
+</script>
+</body>
+</html>
